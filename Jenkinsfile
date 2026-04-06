@@ -17,7 +17,7 @@ pipeline {
                 stage('Backend Tests') {
                     steps {
                         dir('backend') {
-                            bat 'npm ci'
+                            bat 'npm install'
                             bat 'npx prisma generate'
                             withEnv([
                                 'DATABASE_URL=postgresql://testuser:testpass@localhost:5432/testdb',
@@ -35,7 +35,7 @@ pipeline {
                 stage('Frontend Lint') {
                     steps {
                         dir('frontend') {
-                            bat 'npm ci'
+                            bat 'npm install'
                             bat 'npm run lint || echo No lint errors'
                         }
                     }

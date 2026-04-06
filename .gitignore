@@ -9,7 +9,6 @@ yarn-debug.log*
 yarn-error.log*
 .npm
 .pnpm-store
-package-lock.json
 
 # ---- Environment (secrets) ----
 .env
