@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    triggers {
+        pollSCM('* * * * *')  // Check GitHub for changes every minute
+    }
+
     options {
         skipDefaultCheckout(false)
         timestamps()
