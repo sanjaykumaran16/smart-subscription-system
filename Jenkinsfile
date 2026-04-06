@@ -58,6 +58,20 @@ pipeline {
 
         stage('Docker Compose Up') {
             steps {
+                bat '''
+                    echo POSTGRES_USER=subadmin> .env
+                    echo POSTGRES_PASSWORD=SubPassword123!>> .env
+                    echo POSTGRES_DB=smart_sub_db>> .env
+                    echo DATABASE_URL=postgresql://subadmin:SubPassword123!@postgres:5432/smart_sub_db>> .env
+                    echo REDIS_URL=redis://redis:6379>> .env
+                    echo JWT_SECRET=jenkins-ci-secret-key-12345>> .env
+                    echo JWT_EXPIRES_IN=7d>> .env
+                    echo NODE_ENV=development>> .env
+                    echo PORT=5000>> .env
+                    echo FRONTEND_URL=http://localhost:3000>> .env
+                    echo GRAFANA_USER=admin>> .env
+                    echo GRAFANA_PASSWORD=admin123>> .env
+                '''
                 bat 'docker-compose -f docker-compose.yml up -d --build'
                 bat 'ping -n 16 127.0.0.1 > nul'
                 bat 'docker-compose ps'
