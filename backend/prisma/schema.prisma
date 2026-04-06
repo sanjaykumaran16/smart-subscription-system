@@ -1,0 +1,64 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  password      String
+  currency      String         @default("USD")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+
+  @@map("users")
+}
+
+model Subscription {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  category       Category      @default(other)
+  cost           Float
+  currency       String        @default("USD")
+  billingCycle   BillingCycle  @default(monthly)
+  nextBillingDate DateTime
+  status         Status        @default(active)
+  logo           String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("subscriptions")
+}
+
+enum Category {
+  streaming
+  software
+  fitness
+  food
+  gaming
+  other
+}
+
+enum BillingCycle {
+  weekly
+  monthly
+  annually
+}
+
+enum Status {
+  active
+  paused
+  cancelled
+}
