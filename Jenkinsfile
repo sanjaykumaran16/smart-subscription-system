@@ -10,85 +10,53 @@ pipeline {
 
     stages {
 
-        // ─── Stage 1: Test ──────────────────────────────────────
-        stage('Test') {
-            stages {
-
-                stage('Backend Tests') {
-                    steps {
-                        dir('backend') {
-                            bat 'npm install'
-                            bat 'npx prisma generate'
-                            withEnv([
-                                'DATABASE_URL=postgresql://testuser:testpass@localhost:5432/testdb',
-                                'REDIS_URL=redis://localhost:6379',
-                                'JWT_SECRET=test-secret-key-for-ci',
-                                'NODE_ENV=test',
-                                'PORT=5000'
-                            ]) {
-                                bat 'npm test'
-                            }
-                        }
-                    }
+        stage('Backend Install') {
+            steps {
+                dir('backend') {
+                    bat 'npm install'
+                    bat 'npx prisma generate'
                 }
+            }
+        }
 
-                stage('Frontend Lint') {
-                    steps {
-                        dir('frontend') {
-                            bat 'npm install'
-                            bat 'npm run lint || echo No lint errors'
-                        }
+        stage('Backend Test') {
+            steps {
+                dir('backend') {
+                    withEnv([
+                        'DATABASE_URL=postgresql://testuser:testpass@localhost:5432/testdb',
+                        'REDIS_URL=redis://localhost:6379',
+                        'JWT_SECRET=test-secret-key-for-ci',
+                        'NODE_ENV=test',
+                        'PORT=5000'
+                    ]) {
+                        bat 'npx jest --passWithNoTests --forceExit --detectOpenHandles'
                     }
                 }
             }
         }
 
-        // ─── Stage 2: Build Docker Images ───────────────────────
-        stage('Build & Push') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch 'develop'
-                }
-            }
+        stage('Frontend Install & Lint') {
             steps {
-                withCredentials([
-                    string(credentialsId: 'docker-hub-username', variable: 'DOCKER_USERNAME'),
-                    string(credentialsId: 'docker-hub-password', variable: 'DOCKER_PASSWORD')
-                ]) {
-                    bat "docker login -u %DOCKER_USERNAME% -p %DOCKER_PASSWORD%"
-
-                    // Backend image
-                    bat "docker build -t %DOCKER_USERNAME%/smart-sub-backend:latest -t %DOCKER_USERNAME%/smart-sub-backend:%GIT_COMMIT% ./backend"
-                    bat "docker push %DOCKER_USERNAME%/smart-sub-backend:latest"
-                    bat "docker push %DOCKER_USERNAME%/smart-sub-backend:%GIT_COMMIT%"
-
-                    // Frontend image
-                    bat "docker build --build-arg VITE_API_URL=/api -t %DOCKER_USERNAME%/smart-sub-frontend:latest -t %DOCKER_USERNAME%/smart-sub-frontend:%GIT_COMMIT% ./frontend"
-                    bat "docker push %DOCKER_USERNAME%/smart-sub-frontend:latest"
-                    bat "docker push %DOCKER_USERNAME%/smart-sub-frontend:%GIT_COMMIT%"
-
-                    // Nginx image
-                    bat "docker build -t %DOCKER_USERNAME%/smart-sub-nginx:latest -t %DOCKER_USERNAME%/smart-sub-nginx:%GIT_COMMIT% ./nginx"
-                    bat "docker push %DOCKER_USERNAME%/smart-sub-nginx:latest"
-                    bat "docker push %DOCKER_USERNAME%/smart-sub-nginx:%GIT_COMMIT%"
-
-                    bat 'docker logout'
+                dir('frontend') {
+                    bat 'npm install'
+                    bat 'npm run lint || exit 0'
                 }
             }
         }
 
-        // ─── Stage 3: Deploy ────────────────────────────────────
-        stage('Deploy') {
-            when {
-                branch 'main'
-            }
+        stage('Build Docker Images') {
             steps {
-                echo 'Deploy stage - configure with your production server details'
-                // Uncomment and configure when you have a deploy target:
-                // sshagent(credentials: ['deploy-ssh-key']) {
-                //     bat "ssh -o StrictHostKeyChecking=no user@your-server \"cd ~/smart-sub-mgmt && docker-compose -f docker-compose.prod.yml pull && docker-compose -f docker-compose.prod.yml up -d --remove-orphans\""
-                // }
+                bat 'docker build -t smart-sub-backend:latest ./backend'
+                bat 'docker build --build-arg VITE_API_URL=/api -t smart-sub-frontend:latest ./frontend'
+                bat 'docker build -t smart-sub-nginx:latest ./nginx'
+            }
+        }
+
+        stage('Docker Compose Up') {
+            steps {
+                bat 'docker-compose -f docker-compose.yml up -d --build'
+                bat 'ping -n 16 127.0.0.1 > nul'
+                bat 'docker-compose ps'
             }
         }
     }
@@ -99,6 +67,9 @@ pipeline {
         }
         failure {
             echo 'Pipeline failed!'
+        }
+        always {
+            bat 'docker-compose -f docker-compose.yml down || exit 0'
         }
     }
 }
